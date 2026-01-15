@@ -20,6 +20,8 @@ AIは人間と同じように
 
 ### 2) サーバー側（Python）
 その他ファイルが存在するディレクトリで、以下を実行：
+
+```bash
 python -m uvicorn server:app --reload --port 8000
 
 ---
