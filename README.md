@@ -31,23 +31,6 @@ python -m uvicorn server:app --reload --port 8000
 
 ---
 
-## システム構成（高レベル）
-画面(UI)
-↓ 状態取得
-ブラウザスクリプト（JavaScript）
-↓ 状態（JSON）
-サーバー（Python）
-↓ 判断
-LLM（ChatGPT / Gemini）
-↓ 決定
-サーバー
-↓ 操作指示
-ブラウザスクリプト
-↓
-実際のクリック操作
-
----
-
 ## うまくいった点
 - **完全自動化されたパイプライン**
 - **Bot相手には高い勝率**
