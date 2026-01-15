@@ -11,6 +11,18 @@ AIは人間と同じように
 
 ---
 
+## 使用方法
+
+### 1) ブラウザ側（Tampermonkey）
+1. Tampermonkey をインストール
+2. `Godfield AI (bundle entry)-1.4.user.js` を Tampermonkey に追加（Install）
+
+### 2) サーバー側（Python）
+その他ファイルが存在するディレクトリで、以下を実行：
+python -m uvicorn server:app --reload --port 8000
+
+---
+
 ## このプロジェクトで実現したこと
 - Godfieldをプレイする **画面ベースAI** を設計・実装
 - UI上の情報（HP / MP / 行動など）を解析
@@ -32,9 +44,6 @@ LLM（ChatGPT / Gemini）
 ブラウザスクリプト
 ↓
 実際のクリック操作
-
-yaml
-コードをコピーする
 
 ---
 
