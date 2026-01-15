@@ -1,5 +1,6 @@
 # Godfield AI
 画面情報だけを使って動作するゲームAI
+（Coded with Chatgpt, gemini)
 
 ## 概要
 本プロジェクトは、オンラインカードゲーム「Godfield」を対象に、  
