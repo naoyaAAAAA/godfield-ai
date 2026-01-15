@@ -1,0 +1,14 @@
+{
+  "name": "godfieldai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --outfile=dist/bundle.user.js --format=iife",
+    "dev": "esbuild src/index.js --bundle --outfile=dist/bundle.user.js --format=iife --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "prettier": "^3.7.4"
+  }
+}
