@@ -1,59 +1,37 @@
 # Godfield AI
-画面情報だけを使って動作するゲームAI
-（Coded with Chatgpt, gemini)
 
-## 概要
-本プロジェクトは、オンラインカードゲーム「Godfield」を対象に、  
-**ゲーム内部のAPIやデータを一切使わず、画面（UI）だけを読み取って動作するAI** を実装したものです。
+A browser-based game AI system built with JavaScript, Tampermonkey, Python FastAPI, and LLMs.
 
-AIは人間と同じように  
-**画面を見る → 状況を判断する → 操作を行う**  
-という流れでゲームをプレイします。
+This project reads game state from the browser UI, sends structured JSON data to a local FastAPI server, receives an AI-generated action, and executes the action in the browser.
 
----
+## Tech Stack
 
-## 使用方法
+- JavaScript / Tampermonkey
+- Python / FastAPI
+- LLM API
+- Node.js / esbuild
+- Git / GitHub
 
-### 1) ブラウザ側（Tampermonkey）
-1. Tampermonkey をインストール
-2. `Godfield AI (bundle entry)-1.4.user.js` を Tampermonkey に追加（Install）
+## Architecture
 
-### 2) サーバー側（Python）
-その他ファイルが存在するディレクトリで、以下を実行：
-python -m uvicorn server:app --reload --port 8000
+1. The browser userscript reads the current game state from the DOM.
+2. The state is converted into structured JSON.
+3. The JSON is sent to a local Python FastAPI server.
+4. The server generates a decision using an LLM.
+5. The browser receives the action and executes it on the UI.
 
----
+## What I implemented
 
-## このプロジェクトで実現したこと
-- Godfieldをプレイする **画面ベースAI** を設計・実装
-- UI上の情報（HP / MP / 行動など）を解析
-- AIが自動で意思決定し、実際に操作を実行
-- 完全自動化されたパイプライン
-- Bot相手には高い勝率
-- フェイルセーフ設計
-- UIの異常や不確定な状態で暴走しない仕組み
+- DOM-based state extraction
+- API communication between browser JavaScript and Python FastAPI
+- Structured JSON action format
+- LLM-based decision-making pipeline
+- Fail-safe handling for uncertain UI states
+- Modular JavaScript structure using Node.js and esbuild
 
----
+## What I learned
 
-## 課題
-- **熟練プレイヤー相手の勝率は不十分**
-- **長期的な戦略理解が弱い**
-  - 試合全体の流れを十分に考慮できていない
-
----
-
-## 今後の展望
-- 試合履歴を用いた **長期的戦略の導入**
-- 人間プレイヤーに対する性能評価の体系化
-- 他のUIベースアプリケーションへの応用
-
----
-
-## 注意
-- 本プロジェクトは研究・学習目的で作成したものです
-- 実際の利用にあたっては、対象サービスの規約を遵守してください
-
----
-
-> このプロジェクトは、  
-> **AIが現実のUIを通じてどこまで「人間らしく」振る舞えるか**を示す試みです。
+- How to separate browser-side logic and server-side logic
+- How to design JSON-based API input/output
+- How to debug asynchronous UI automation
+- How to use Git/GitHub to manage a multi-file project
