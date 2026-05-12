@@ -27,11 +27,4 @@ This project reads game state from the browser UI, sends structured JSON data to
 - Structured JSON action format
 - LLM-based decision-making pipeline
 - Fail-safe handling for uncertain UI states
-- Modular JavaScript structure using Node.js and esbuild
-
-## What I learned
-
-- How to separate browser-side logic and server-side logic
-- How to design JSON-based API input/output
-- How to debug asynchronous UI automation
-- How to use Git/GitHub to manage a multi-file project
+- Modular JavaScript structure using Node.js and esbuil
