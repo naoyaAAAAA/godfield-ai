@@ -170,7 +170,7 @@ npm install
 npm run build
 ```
 
-For development mode, use:
+For development mode:
 
 ```bash
 npm run dev
@@ -182,23 +182,7 @@ This watches `src/index.js` and rebuilds the bundled userscript into:
 dist/bundle.user.js
 ```
 
-### 4. Serve the local bundle over localhost
-
-The generated JavaScript file is local, but many browser / Tampermonkey environments block direct `file:///...` loading from `@require`.
-
-To keep the file local while making it loadable from Tampermonkey, serve the repository directory through a local HTTP server:
-
-```bash
-python -m http.server 5173
-```
-
-Run this command from the repository root. Then the local bundle can be loaded from:
-
-```text
-http://127.0.0.1:5173/dist/bundle.user.js
-```
-
-### 5. Install Python dependencies
+### 4. Install Python dependencies
 
 This repository currently does not require a complex backend setup. Install the main dependencies manually:
 
@@ -206,7 +190,7 @@ This repository currently does not require a complex backend setup. Install the 
 pip install fastapi uvicorn openai pydantic
 ```
 
-### 6. Set your OpenAI API key
+### 5. Set your OpenAI API key
 
 On macOS / Linux:
 
@@ -226,7 +210,7 @@ You can also choose the model with `GF_MODEL`:
 export GF_MODEL="your_model_name"
 ```
 
-### 7. Start the local FastAPI server
+### 6. Start the local server
 
 ```bash
 python -m uvicorn server:app --reload --port 8000
@@ -238,31 +222,15 @@ The browser client sends requests to:
 http://127.0.0.1:8000/decide
 ```
 
-### 8. Load the userscript in Tampermonkey
+### 7. Load the userscript in Tampermonkey
 
-Create a Tampermonkey entry script that loads the locally served bundle:
+Create a Tampermonkey script that loads the built bundle from your local file path, for example:
 
 ```javascript
-// ==UserScript==
-// @name         Godfield AI bundle entry
-// @namespace    godfield-ai
-// @version      1.0
-// @match        https://godfield.net/*
-// @match        https://*.godfield.net/*
-// @grant        GM_xmlhttpRequest
-// @connect      127.0.0.1
-// @connect      localhost
-// @require      http://127.0.0.1:5173/dist/bundle.user.js
-// ==/UserScript==
+// @require file:///C:/path/to/godfield-ai/dist/bundle.user.js
 ```
 
-Then open Godfield in the browser and keep both local servers running:
-
-```bash
-npm run dev
-python -m http.server 5173
-python -m uvicorn server:app --reload --port 8000
-```
+Then open Godfield in the browser and start the local FastAPI server.
 
 ---
 
