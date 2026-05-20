@@ -1,2 +1,5 @@
 node_modules/
 .env
+ai_thinking.log
+__pycache__/
+*.pyc

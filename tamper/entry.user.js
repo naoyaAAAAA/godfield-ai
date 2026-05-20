@@ -11,7 +11,7 @@
 // @connect      127.0.0.1
 // @connect      localhost
 // @connect      *
-// @require      file:///C:/godfieldAI/dist/bundle.user.js
+// @require      file:///C:/godfield-ai/dist/bundle.user.js
 // ==/UserScript==
 
 (() => {
