@@ -406,7 +406,8 @@
       const r = p.getBoundingClientRect();
       const t = (p.textContent || "").replace(/\s+/g, "");
       const looksLikeHud = /HP/.test(t) && /MP/.test(t) && /¥/.test(t);
-      if (r.width >= 320 && r.width <= 360 && r.height >= 30 && r.height <= 50 && looksLikeHud) return p;
+      if (r.width >= 320 && r.width <= 360 && r.height >= 30 && r.height <= 50 && looksLikeHud)
+        return p;
     }
     return null;
   }
@@ -416,7 +417,9 @@
   }
   function readPlayers() {
     if (globals.isCheckingMiracles) return globals.lastPlayers ?? null;
-    const hits = Array.from(document.querySelectorAll("div, span")).filter((el) => /HP/.test(el.textContent) && /MP/.test(el.textContent) && /¥/.test(el.textContent));
+    const hits = Array.from(document.querySelectorAll("div, span")).filter(
+      (el) => /HP/.test(el.textContent) && /MP/.test(el.textContent) && /¥/.test(el.textContent)
+    );
     const seen = /* @__PURE__ */ new Set();
     const huds = [];
     for (const h of hits) {
@@ -458,7 +461,8 @@
     }
     globals.lastMeRowEl = meRow;
     globals.lastEnemyRowEl = enRow;
-    if (!horizontal) globals.meIsTopLastKnown = meRow.getBoundingClientRect().top < enRow.getBoundingClientRect().top;
+    if (!horizontal)
+      globals.meIsTopLastKnown = meRow.getBoundingClientRect().top < enRow.getBoundingClientRect().top;
     const parseRow = (row) => {
       const m = row.textContent.replace(/\s+/g, "").match(/HP(\d+)MP(\d+)¥(\d+)/);
       return m ? { hp: +m[1], mp: +m[2], gold: +m[3] } : null;
@@ -489,8 +493,7 @@
         if (r.width < 10 || r.width > 40) return false;
         const cx = r.left + r.width / 2;
         if (cx < minX) return false;
-        const bg = window.getComputedStyle(el).backgroundImage;
-        return el.tagName === "IMG" || bg && bg !== "none";
+        return hasVisualImage(el);
       }
     );
     const vh = window.innerHeight;
@@ -586,8 +589,7 @@
           if (r.height < 10 || r.height > 60) return false;
           const cx = r.left + r.width / 2;
           if (cx < minX) return false;
-          const bg = window.getComputedStyle(el).backgroundImage;
-          return el.tagName === "IMG" || bg && bg !== "none";
+          return hasVisualImage(el);
         }
       );
       if (!raw.length) {
@@ -635,11 +637,65 @@
       globals.lockedMeIsTop = prev;
     }
   }
+  function cardSizeLimits() {
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    return {
+      minW: 40,
+      maxW: Math.max(120, Math.min(240, vw * 0.1)),
+      minH: 50,
+      maxH: Math.max(140, Math.min(280, vh * 0.22))
+    };
+  }
+  function isCardLikeRect(rect, limits = cardSizeLimits()) {
+    if (!rect) return false;
+    return rect.width >= limits.minW && rect.width <= limits.maxW && rect.height >= limits.minH && rect.height <= limits.maxH;
+  }
+  function hasCssBackgroundImage(el) {
+    const bg = window.getComputedStyle(el).backgroundImage;
+    return !!bg && bg !== "none";
+  }
+  function findNestedImage(el) {
+    if (!el) return null;
+    if (el.tagName === "IMG") return el;
+    return el.querySelector?.("img") || null;
+  }
+  function hasVisualImage(el) {
+    return hasCssBackgroundImage(el) || !!findNestedImage(el);
+  }
+  function hasCardImage(el) {
+    if (hasCssBackgroundImage(el)) return true;
+    const img = findNestedImage(el);
+    const src = img?.currentSrc || img?.src || "";
+    return src.includes("/images/items/");
+  }
+  function cardHoverElement(el) {
+    return findNestedImage(el) || el;
+  }
+  function isHandCardElement(el, detail) {
+    if (detail && detail.contains(el)) return false;
+    if (!hasCardImage(el)) return false;
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    if (r.top + r.height / 2 < vh * 0.5) return false;
+    if (r.left + r.width / 2 > vw * 0.88) return false;
+    if (!isCardLikeRect(r)) return false;
+    return true;
+  }
+  function findCardContainer(el) {
+    const limits = cardSizeLimits();
+    let p = el;
+    for (let i = 0; i < 8 && p && p.tagName !== "BODY"; i++, p = p.parentElement) {
+      const r = p.getBoundingClientRect();
+      if (isCardLikeRect(r, limits)) return p;
+    }
+    return el;
+  }
   function readHand(phase) {
     const detail = findDetailPanel();
     const root = document.querySelector("#main");
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
+    if (!root) return [];
     const labels = Array.from(root.querySelectorAll("div, span")).filter((el) => {
       if (detail && detail.contains(el)) return false;
       return /^(攻[0-9]+|守[0-9]+|\+攻[0-9]+|¥[0-9]+)$/.test(
@@ -647,14 +703,7 @@
       );
     });
     const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
-      if (detail && detail.contains(el)) return false;
-      const st = window.getComputedStyle(el);
-      if (!st.backgroundImage || st.backgroundImage === "none") return false;
-      const r = el.getBoundingClientRect();
-      if (r.top + r.height / 2 < vh * 0.5) return false;
-      if (r.left + r.width / 2 > vw * 0.85) return false;
-      if (r.width < 50 || r.width > 100) return false;
-      return true;
+      return isHandCardElement(el, detail);
     });
     const rows = [];
     for (const el of cards) {
@@ -687,7 +736,11 @@
       for (const l of labels) {
         const lr = l.getBoundingClientRect();
         const dy = lr.top - u.r.bottom;
-        if (dy > -10 && dy < 80 && Math.abs(lr.left - u.r.left) < 40) {
+        const cardCx = u.r.left + u.r.width / 2;
+        const labelCx = lr.left + lr.width / 2;
+        const maxDx = Math.max(50, u.r.width * 0.65);
+        const maxDy = Math.max(80, u.r.height * 0.65);
+        if (dy > -20 && dy < maxDy && Math.abs(labelCx - cardCx) < maxDx) {
           if (Math.abs(dy) < bestD) {
             bestD = Math.abs(dy);
             bestL = l;
@@ -705,7 +758,7 @@
     });
   }
   function readCardInfo(el, phase) {
-    hoverWithReset(el);
+    hoverWithReset(cardHoverElement(el));
     const d = findDetailPanel();
     let name = "", raw = "";
     if (d) {
@@ -716,12 +769,7 @@
       }
     }
     let usable = true;
-    let p = el;
-    while (p && p.tagName !== "BODY") {
-      const s = window.getComputedStyle(p);
-      if (s.width === "80px" && s.height === "100px") break;
-      p = p.parentElement;
-    }
+    const p = findCardContainer(el);
     if (p) {
       const masks = Array.from(p.querySelectorAll("div")).filter((m) => {
         const ms = window.getComputedStyle(m);
@@ -732,7 +780,9 @@
     return { name, raw_text: raw, usable };
   }
   function readCardInfoForIncoming(el) {
-    const full = readDetailPanelTextAfterHover(el, { retries: 3 });
+    const full = readDetailPanelTextAfterHover(cardHoverElement(el), {
+      retries: 3
+    });
     if (!full) return null;
     const lines = full.split("\n").map((s) => s.trim()).filter(Boolean);
     if (!lines.length) return null;
@@ -741,6 +791,7 @@
   function readIncomingCards(phase) {
     if (phase !== "defense") return [];
     const root = document.querySelector("#main");
+    if (!root) return [];
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const ZONES = {
@@ -748,8 +799,7 @@
       right: { minX: vw * 0.25, maxX: vw * 0.5, minY: vh * 0.1, maxY: vh * 0.42 }
     };
     const cards = Array.from(root.querySelectorAll("div")).map((el) => {
-      const s = window.getComputedStyle(el);
-      if (!s.backgroundImage || s.backgroundImage === "none") return null;
+      if (!hasCardImage(el)) return null;
       const r = el.getBoundingClientRect();
       if (r.width < 50) return null;
       const cx = r.left + r.width / 2;
@@ -787,24 +837,31 @@
     const root = document.querySelector("#main") || document;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const detail = findDetailPanel();
     const zone = {
       minX: vw * 0.3,
       maxX: vw * 0.55,
       minY: vh * 0.05,
       maxY: vh * 0.45
     };
+    const limits = cardSizeLimits();
     const rawCards = Array.from(root.querySelectorAll("div")).map((el) => {
-      const s = window.getComputedStyle(el);
-      if (!s.backgroundImage || s.backgroundImage === "none") return null;
+      if (detail && detail.contains(el)) return null;
+      if (!hasCardImage(el)) return null;
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
-      if (cx < zone.minX || cx > zone.maxX || cy < zone.minY || cy > zone.maxY) {
+      if (r.width < limits.minW || r.width > Math.max(180, limits.maxW))
         return null;
-      }
-      if (r.width < 50 || r.width > 140) return null;
-      if (r.height < 60 || r.height > 180) return null;
-      return { el, r };
+      if (r.height < limits.minH || r.height > Math.max(220, limits.maxH))
+        return null;
+      const inPrimaryZone = cx >= zone.minX && cx <= zone.maxX && cy >= zone.minY && cy <= zone.maxY;
+      const inFallbackZone = cy >= vh * 0.05 && cy <= vh * 0.58 && cx >= vw * 0.05 && cx <= vw * 0.9;
+      if (!inPrimaryZone && !inFallbackZone) return null;
+      const targetX = vw * 0.42;
+      const targetY = vh * 0.25;
+      const distance = Math.hypot(cx - targetX, cy - targetY);
+      return { el, r, inPrimaryZone, distance };
     }).filter(Boolean);
     if (!rawCards.length) return [];
     const unique = [];
@@ -815,7 +872,10 @@
       );
       if (!dup) unique.push(obj);
     }
-    unique.sort((a, b) => a.r.top - b.r.top);
+    unique.sort((a, b) => {
+      if (a.inPrimaryZone !== b.inPrimaryZone) return a.inPrimaryZone ? -1 : 1;
+      return a.distance - b.distance;
+    });
     const cardEl = unique[0].el;
     const info = readCardInfoForIncoming(cardEl);
     if (!info) return [];
@@ -846,25 +906,29 @@
     const root = document.querySelector("#main");
     if (!root) return false;
     const detail = findDetailPanel();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
     const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
-      if (detail && detail.contains(el)) return false;
-      const st = window.getComputedStyle(el);
-      if (!st.backgroundImage || st.backgroundImage === "none") return false;
-      const r = el.getBoundingClientRect();
-      if (r.top + r.height / 2 < vh * 0.5) return false;
-      if (r.left + r.width / 2 > vw * 0.85) return false;
-      if (r.width < 50 || r.width > 100) return false;
-      if (r.height < 60 || r.height > 140) return false;
-      return true;
+      return isHandCardElement(el, detail);
     });
     return cards.length > 0;
   }
+  function findTextElement(text) {
+    const viewportArea = window.innerWidth * window.innerHeight;
+    const candidates = Array.from(document.querySelectorAll("button, div, span")).filter((el) => {
+      const ownText = Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
+      const textContent = (el.textContent || "").trim();
+      return ownText.includes(text) || textContent === text;
+    }).map((el) => ({ el, r: el.getBoundingClientRect() })).filter(({ r }) => r.width > 20 && r.height > 20).filter(({ r }) => r.width * r.height < viewportArea * 0.12).filter(({ r }) => r.width < window.innerWidth * 0.6).filter(({ r }) => r.height < window.innerHeight * 0.25).sort((a, b) => {
+      const aArea = a.r.width * a.r.height;
+      const bArea = b.r.width * b.r.height;
+      return aArea - bArea;
+    });
+    return candidates.length ? candidates[0].el : null;
+  }
   function detectPhase() {
-    const buttons = Array.from(document.querySelectorAll("button, div, span"));
-    const hasPray = buttons.some((el) => el.textContent.includes("\u7948\u308B"));
-    const hasForgiveRaw = buttons.some((el) => el.textContent.includes("\u8A31\u3059"));
+    const prayEl = findTextElement("\u7948\u308B");
+    const forgiveEl = findTextElement("\u8A31\u3059");
+    const hasPray = !!prayEl;
+    const hasForgiveRaw = !!forgiveEl;
     const now = performance.now();
     const GRACE_MS = 1500;
     if (hasForgiveRaw) globals.forgiveLastSeenAt = now;
@@ -991,6 +1055,223 @@
     if (!mpBtns || !goldBtns) return null;
     return { mp: mpBtns, gold: goldBtns };
   }
+  function rectInfo(el) {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      left: Math.round(r.left),
+      top: Math.round(r.top),
+      width: Math.round(r.width),
+      height: Math.round(r.height),
+      cx: Math.round(r.left + r.width / 2),
+      cy: Math.round(r.top + r.height / 2)
+    };
+  }
+  function describeElement(el) {
+    if (!el) return null;
+    const cs = window.getComputedStyle(el);
+    const bg = cs.backgroundImage;
+    const img = findNestedImage(el);
+    return {
+      tag: el.tagName,
+      text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
+      rect: rectInfo(el),
+      opacity: cs.opacity,
+      position: cs.position,
+      pointerEvents: cs.pointerEvents,
+      hasBg: !!bg && bg !== "none",
+      hasImg: !!img,
+      imgSrc: img ? (img.currentSrc || img.src || "").slice(0, 120) : "",
+      bg: bg && bg !== "none" ? bg.slice(0, 120) : ""
+    };
+  }
+  function clearDebugOverlays() {
+    document.querySelectorAll(".gf-ai-debug-overlay").forEach((el) => el.remove());
+  }
+  function drawDebugBox(el, color, label) {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const box = document.createElement("div");
+    box.className = "gf-ai-debug-overlay";
+    box.style.cssText = [
+      "position:fixed",
+      `left:${Math.round(r.left)}px`,
+      `top:${Math.round(r.top)}px`,
+      `width:${Math.round(r.width)}px`,
+      `height:${Math.round(r.height)}px`,
+      `border:2px solid ${color}`,
+      "box-sizing:border-box",
+      "z-index:2147483647",
+      "pointer-events:none",
+      "font:12px/1.2 monospace"
+    ].join(";");
+    const tag = document.createElement("div");
+    tag.textContent = label;
+    tag.style.cssText = [
+      `background:${color}`,
+      "color:#111",
+      "padding:1px 3px",
+      "position:absolute",
+      "left:0",
+      "top:-16px",
+      "white-space:nowrap"
+    ].join(";");
+    box.appendChild(tag);
+    document.body.appendChild(box);
+  }
+  function diagnose({ highlight = false } = {}) {
+    const root = document.querySelector("#main");
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const detail = findDetailPanel();
+    const phase = detectPhase();
+    const miracleButton = findMiraclesButton();
+    const buyBox = findBuyHitbox();
+    const prayButton = findTextElement("\u7948\u308B");
+    const forgiveButton = findTextElement("\u8A31\u3059");
+    const buyCandidates = readBuyCandidate(phase);
+    if (highlight) clearDebugOverlays();
+    const hudHits = Array.from(document.querySelectorAll("div, span")).filter(
+      (el) => /HP/.test(el.textContent) && /MP/.test(el.textContent) && /¥/.test(el.textContent)
+    );
+    const hudSeen = /* @__PURE__ */ new Set();
+    const huds = [];
+    for (const hit of hudHits) {
+      const box = pickHudBox(hit);
+      if (!box) continue;
+      const key = rectKey(box);
+      if (hudSeen.has(key)) continue;
+      hudSeen.add(key);
+      huds.push(box);
+    }
+    const labels = root ? Array.from(root.querySelectorAll("div, span")).filter((el) => {
+      if (detail && detail.contains(el)) return false;
+      return /^(攻[0-9]+|守[0-9]+|\+攻[0-9]+|¥[0-9]+)$/.test(
+        el.textContent.trim()
+      );
+    }) : [];
+    const handCandidates = root ? Array.from(root.querySelectorAll("div")).filter((el) => {
+      return isHandCardElement(el, detail);
+    }) : [];
+    const handRows = [];
+    for (const el of handCandidates) {
+      const top = el.getBoundingClientRect().top;
+      let row = handRows.find((r) => Math.abs(r.top - top) < 40);
+      if (!row) {
+        row = { top, els: [] };
+        handRows.push(row);
+      }
+      row.els.push(el);
+    }
+    handRows.sort((a, b) => a.top - b.top);
+    const selectedHand = handRows.slice(-2).flatMap((r) => r.els);
+    const statusRaw = root ? Array.from(root.querySelectorAll("div, span, img")).filter((el) => {
+      if (detail && detail.contains(el)) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width < 10 || r.width > 40) return false;
+      const cx = r.left + r.width / 2;
+      if (cx < vw * 0.45) return false;
+      return hasVisualImage(el);
+    }) : [];
+    const statusTop = [];
+    const statusBot = [];
+    statusRaw.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const cy = r.top + r.height / 2;
+      if (cy < vh * 0.2) statusTop.push({ el, cx: 0, cy });
+      else if (cy < vh * 0.4) statusBot.push({ el, cx: 0, cy });
+    });
+    const incomingCandidates = root ? Array.from(root.querySelectorAll("div")).map((el) => {
+      if (!hasCardImage(el)) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width < 50) return null;
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const left = cx > vw * 0.05 && cx < vw * 0.2 && cy > vh * 0.1 && cy < vh * 0.42;
+      const right = cx > vw * 0.25 && cx < vw * 0.5 && cy > vh * 0.1 && cy < vh * 0.42;
+      if (!left && !right) return null;
+      return { el, zone: left ? "left" : "right" };
+    }).filter(Boolean) : [];
+    const summary = {
+      viewport: { width: vw, height: vh },
+      phase,
+      rootFound: !!root,
+      detailPanel: describeElement(detail),
+      prayButton: describeElement(prayButton),
+      forgiveButton: describeElement(forgiveButton),
+      miracleButton: describeElement(miracleButton),
+      buyBox: describeElement(buyBox),
+      players: {
+        hudTextHits: hudHits.length,
+        hudBoxes: huds.map(describeElement),
+        lastPlayers: globals.lastPlayers || null,
+        meIsTop: getMeIsTop(vh)
+      },
+      hand: {
+        labelCount: labels.length,
+        labels: labels.slice(0, 30).map(describeElement),
+        candidateCount: handCandidates.length,
+        rowCounts: handRows.map((r) => ({
+          top: Math.round(r.top),
+          count: r.els.length
+        })),
+        selectedCount: selectedHand.length,
+        selected: selectedHand.slice(0, 30).map(describeElement),
+        lastRead: (globals.lastState?.hand || []).map((c) => ({
+          index: c.index,
+          name: c.name,
+          overlay: c.overlay,
+          usable: c.usable
+        }))
+      },
+      statuses: {
+        rawCount: statusRaw.length,
+        topCount: statusTop.length,
+        bottomCount: statusBot.length,
+        meTopAssignment: getMeIsTop(vh) ? "top" : "bottom",
+        lastRead: {
+          me: globals.lastState?.me?.statuses || [],
+          enemy: globals.lastState?.enemy?.statuses || []
+        }
+      },
+      incoming: {
+        candidateCount: incomingCandidates.length,
+        candidates: incomingCandidates.slice(0, 30).map((x) => ({
+          zone: x.zone,
+          ...describeElement(x.el)
+        })),
+        lastRead: globals.lastState?.incomingCards || []
+      },
+      buyCandidates,
+      miracles: {
+        seen: {
+          me: Array.from(globals.mySeenMiracles),
+          enemy: Array.from(globals.enemySeenMiracles)
+        },
+        lastCheckTime: globals.lastMiracleCheckTime,
+        isChecking: globals.isCheckingMiracles
+      }
+    };
+    if (highlight) {
+      huds.forEach((el, i) => drawDebugBox(el, "#d58cff", `hud ${i}`));
+      if (detail) drawDebugBox(detail, "#51cf66", "detail");
+      if (prayButton) drawDebugBox(prayButton, "#69db7c", "pray");
+      if (forgiveButton) drawDebugBox(forgiveButton, "#ff8787", "forgive");
+      if (miracleButton) drawDebugBox(miracleButton, "#ffd43b", "miracle btn");
+      if (buyBox) drawDebugBox(buyBox, "#f06595", "buy box");
+      handCandidates.forEach(
+        (el, i) => drawDebugBox(el, "#22b8cf", `hand? ${i}`)
+      );
+      selectedHand.forEach((el, i) => drawDebugBox(el, "#339af0", `hand ${i}`));
+      statusRaw.forEach((el, i) => drawDebugBox(el, "#ffa94d", `status? ${i}`));
+      incomingCandidates.forEach(
+        (x, i) => drawDebugBox(x.el, "#ff6b6b", `inc ${i} ${x.zone}`)
+      );
+    }
+    log("[GF AI DIAGNOSE]", summary);
+    return summary;
+  }
   function readState() {
     if (globals.isCheckingMiracles) return null;
     const phase = detectPhase();
@@ -1025,7 +1306,9 @@
       findBuyHitbox,
       findDetailPanel,
       getMeIsTop,
-      hasClickableHand
+      hasClickableHand,
+      diagnose,
+      clearDebugOverlays
     };
   }
 
@@ -1100,9 +1383,6 @@
         return true;
       }
       if (incoming.length === 1 && names[0].includes("\u8A31\u3059")) {
-        return true;
-      }
-      if (incoming.length === 2 && names.some((n) => n.includes("\u8CB7\u3046"))) {
         return true;
       }
       return false;
@@ -1183,10 +1463,12 @@
       }
       if (state.phase !== "attack" && state.phase !== "defense") return false;
       const handSig = (state.hand || []).map((c) => `${c.name}:${c.overlay}`).join("|");
-      if (state.phase === globals.lastPhase && handSig === globals.lastHandSig)
+      const incomingSig = state.phase === "defense" ? (state.incomingCards || []).map((c) => `${c.name}:${c.overlay || ""}`).join("|") : "";
+      const actionSig = `${handSig}::${incomingSig}`;
+      if (state.phase === globals.lastPhase && actionSig === globals.lastHandSig)
         return false;
       globals.lastPhase = state.phase;
-      globals.lastHandSig = handSig;
+      globals.lastHandSig = actionSig;
       return true;
     }
     return {
@@ -1195,7 +1477,8 @@
       isHarmlessTradeIncoming,
       isLikelyMyAttackEchoNoReflect,
       rememberLastAttackSig,
-      maybeCheckMiracles
+      maybeCheckMiracles,
+      checkMiraclesOnce
     };
   }
 
@@ -1438,9 +1721,52 @@
     maybeCheckMiracles: phaseGuards.maybeCheckMiracles,
     escapeDefensePass: () => actions.useCardIndices([], "defense")
   });
+  function installDebugApi() {
+    const api = {
+      globals,
+      readState() {
+        const state = stateReader.readState();
+        if (state) globals.lastState = state;
+        log("[GF AI STATE]", state);
+        return state;
+      },
+      lastState() {
+        log("[GF AI LAST STATE]", globals.lastState);
+        return globals.lastState;
+      },
+      diagnose(options = {}) {
+        const opts = typeof options === "boolean" ? { highlight: options } : options;
+        return stateReader.diagnose(opts);
+      },
+      highlight() {
+        return stateReader.diagnose({ highlight: true });
+      },
+      clearHighlights() {
+        stateReader.clearDebugOverlays();
+      },
+      async checkMiracles() {
+        await phaseGuards.checkMiraclesOnce();
+        return {
+          me: Array.from(globals.mySeenMiracles),
+          enemy: Array.from(globals.enemySeenMiracles)
+        };
+      },
+      setMyName(name) {
+        globals.MY_NAME = String(name || "AI");
+        log("[GF AI] MY_NAME =", globals.MY_NAME);
+        return globals.MY_NAME;
+      }
+    };
+    globalThis.GFAI = api;
+    try {
+      if (typeof unsafeWindow !== "undefined") unsafeWindow.GFAI = api;
+    } catch (e) {
+    }
+  }
   (function init() {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     log("[GF] bundle loaded", now);
+    installDebugApi();
     pollingLoop.startLoop();
   })();
 })();

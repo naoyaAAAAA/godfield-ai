@@ -90,10 +90,6 @@ function createPhaseGuards({
       return true;
     }
 
-    if (incoming.length === 2 && names.some((n) => n.includes("買う"))) {
-      return true;
-    }
-
     return false;
   }
 
@@ -199,11 +195,18 @@ function createPhaseGuards({
     const handSig = (state.hand || [])
       .map((c) => `${c.name}:${c.overlay}`)
       .join("|");
-    if (state.phase === globals.lastPhase && handSig === globals.lastHandSig)
+    const incomingSig =
+      state.phase === "defense"
+        ? (state.incomingCards || [])
+            .map((c) => `${c.name}:${c.overlay || ""}`)
+            .join("|")
+        : "";
+    const actionSig = `${handSig}::${incomingSig}`;
+    if (state.phase === globals.lastPhase && actionSig === globals.lastHandSig)
       return false;
 
     globals.lastPhase = state.phase;
-    globals.lastHandSig = handSig;
+    globals.lastHandSig = actionSig;
     return true;
   }
 
@@ -214,6 +217,7 @@ function createPhaseGuards({
     isLikelyMyAttackEchoNoReflect,
     rememberLastAttackSig,
     maybeCheckMiracles,
+    checkMiraclesOnce,
   };
 }
 

@@ -2,7 +2,6 @@
 import * as logger from "../utils/logger.js";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-
 function fireMouseEvent(el, type, x, y) {
   try {
     el.dispatchEvent(
@@ -115,7 +114,14 @@ function pickHudBox(el) {
   for (let i = 0; i < 6 && p; i++, p = p.parentElement) {
     const r = p.getBoundingClientRect();
     const t = (p.textContent || "").replace(/\s+/g, "");
-    if (r.width <= 360 && r.width >= 320 &&   r.height <= 50 && r.height >= 30 &&   /HP\d+MP\d+¥\d+/.test(t)) return p;
+    if (
+      r.width <= 360 &&
+      r.width >= 320 &&
+      r.height <= 50 &&
+      r.height >= 30 &&
+      /HP\d+MP\d+¥\d+/.test(t)
+    )
+      return p;
   }
   return null;
 }
@@ -128,8 +134,12 @@ function rectKey(el) {
 function readPlayers() {
   if (globals.isCheckingMiracles) return globals.lastPlayers ?? null;
 
-  const hits = Array.from(document.querySelectorAll("div, span"))
-    .filter(el => /HP/.test(el.textContent) && /MP/.test(el.textContent) && /¥/.test(el.textContent));
+  const hits = Array.from(document.querySelectorAll("div, span")).filter(
+    (el) =>
+      /HP/.test(el.textContent) &&
+      /MP/.test(el.textContent) &&
+      /¥/.test(el.textContent),
+  );
 
   const seen = new Set();
   const huds = [];
@@ -143,7 +153,7 @@ function readPlayers() {
     huds.push({ el: box, r, area: r.width * r.height });
   }
 
-  huds.sort((a,b)=>b.area-a.area);
+  huds.sort((a, b) => b.area - a.area);
   if (huds.length < 2) return globals.lastPlayers ?? null;
 
   let a = huds[0].el;
@@ -151,8 +161,8 @@ function readPlayers() {
 
   const ra = a.getBoundingClientRect();
   const rb = b.getBoundingClientRect();
-  const cyA = ra.top + ra.height/2;
-  const cyB = rb.top + rb.height/2;
+  const cyA = ra.top + ra.height / 2;
+  const cyB = rb.top + rb.height / 2;
   const vh = window.innerHeight;
 
   const horizontal = Math.abs(cyA - cyB) < Math.max(30, vh * 0.08);
@@ -162,16 +172,20 @@ function readPlayers() {
   const bHasMe = b.textContent.includes(globals.MY_NAME);
 
   let meRow, enRow;
-  if (aHasMe && !bHasMe) { meRow = a; enRow = b; }
-  else if (!aHasMe && bHasMe) { meRow = b; enRow = a; }
-  else {
+  if (aHasMe && !bHasMe) {
+    meRow = a;
+    enRow = b;
+  } else if (!aHasMe && bHasMe) {
+    meRow = b;
+    enRow = a;
+  } else {
     // 名前で決められないとき：上下ならtop、左右ならleftで仮決め
     if (!horizontal) {
-      meRow = (ra.top <= rb.top) ? a : b;
-      enRow = (meRow === a) ? b : a;
+      meRow = ra.top <= rb.top ? a : b;
+      enRow = meRow === a ? b : a;
     } else {
-      meRow = (ra.left <= rb.left) ? a : b;
-      enRow = (meRow === a) ? b : a;
+      meRow = ra.left <= rb.left ? a : b;
+      enRow = meRow === a ? b : a;
     }
   }
 
@@ -179,11 +193,15 @@ function readPlayers() {
   globals.lastEnemyRowEl = enRow;
 
   // meIsTopLastKnownは「上下配置が確実なときだけ更新」
-  if (!horizontal) globals.meIsTopLastKnown = meRow.getBoundingClientRect().top < enRow.getBoundingClientRect().top;
+  if (!horizontal)
+    globals.meIsTopLastKnown =
+      meRow.getBoundingClientRect().top < enRow.getBoundingClientRect().top;
 
   const parse = (row) => {
     const m = row.textContent.replace(/\s+/g, "").match(/HP(\d+)MP(\d+)¥(\d+)/);
-    return m ? { hp: parseInt(m[1]), mp: parseInt(m[2]), gold: parseInt(m[3]) } : null;
+    return m
+      ? { hp: parseInt(m[1]), mp: parseInt(m[2]), gold: parseInt(m[3]) }
+      : null;
   };
 
   const mStat = parse(meRow);
@@ -196,7 +214,6 @@ function readPlayers() {
   };
   return globals.lastPlayers;
 }
-
 
 function readStatuses(players) {
   const root = document.querySelector("#main") || document.body;
@@ -211,8 +228,7 @@ function readStatuses(players) {
       if (r.width < 10 || r.width > 40) return false;
       const cx = r.left + r.width / 2;
       if (cx < minX) return false;
-      const bg = window.getComputedStyle(el).backgroundImage;
-      return el.tagName === "IMG" || (bg && bg !== "none");
+      return hasVisualImage(el);
     },
   );
 
@@ -293,20 +309,20 @@ async function readMiracleNamesFromSlots(slots, sleep) {
 
     // 【対策2】いきなりクリックせず、まず「カーソルを合わせた」ことにする
     s.el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    
+
     // 詳細パネルが「前のカード」から「この奇跡」に切り替わるきっかけを与えるため少し待つ
-    await sleep(50); 
+    await sleep(50);
 
     // そのあとクリック
     s.el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     s.el.click();
 
     // クリック後の描画待ち（リクエストのあった待ち時間）
-    await sleep(150); 
+    await sleep(150);
 
     let full = "";
     const t0 = performance.now();
-    
+
     // 待ち時間を少し減らしてもいいかもしれませんが、安定重視でそのまま
     while (performance.now() - t0 < 700) {
       const d = findDetailPanel();
@@ -314,7 +330,7 @@ async function readMiracleNamesFromSlots(slots, sleep) {
         full = (d.innerText || "").trim();
         // ここで「前のパネルの内容(lastFull)と違うこと」を確認条件に加えるとさらに盤石ですが、
         // 変化しない場合（同じアイテムを連打など）もあるので一旦「非空」チェックのみにします
-        if (full) break; 
+        if (full) break;
       }
       await sleep(70);
     }
@@ -361,8 +377,7 @@ async function readMiraclesFromView() {
         const cx = r.left + r.width / 2;
         if (cx < minX) return false;
 
-        const bg = window.getComputedStyle(el).backgroundImage;
-        return el.tagName === "IMG" || (bg && bg !== "none");
+        return hasVisualImage(el);
       },
     );
 
@@ -426,9 +441,37 @@ async function readMiraclesFromView() {
   }
 }
 
+function hasCssBackgroundImage(el) {
+  const bg = window.getComputedStyle(el).backgroundImage;
+  return !!bg && bg !== "none";
+}
+
+function findNestedImage(el) {
+  if (!el) return null;
+  if (el.tagName === "IMG") return el;
+  return el.querySelector?.("img") || null;
+}
+
+function hasVisualImage(el) {
+  return hasCssBackgroundImage(el) || !!findNestedImage(el);
+}
+
+function hasCardImage(el) {
+  if (hasCssBackgroundImage(el)) return true;
+  const img = findNestedImage(el);
+  const src = img?.currentSrc || img?.src || "";
+  return src.includes("/images/items/");
+}
+
+function cardHoverElement(el) {
+  return findNestedImage(el) || el;
+}
+
 function readHand(phase) {
   const detail = findDetailPanel();
   const root = document.querySelector("#main");
+  if (!root) return [];
+
   const vh = window.innerHeight;
   const vw = window.innerWidth;
   const labels = Array.from(root.querySelectorAll("div, span")).filter((el) => {
@@ -439,8 +482,7 @@ function readHand(phase) {
   });
   const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
     if (detail && detail.contains(el)) return false;
-    const st = window.getComputedStyle(el);
-    if (!st.backgroundImage || st.backgroundImage === "none") return false;
+    if (!hasCardImage(el)) return false;
     const r = el.getBoundingClientRect();
     if (r.top + r.height / 2 < vh * 0.5) return false;
     if (r.left + r.width / 2 > vw * 0.85) return false;
@@ -501,7 +543,7 @@ function readHand(phase) {
 }
 
 function readCardInfo(el, phase) {
-  hoverWithReset(el);
+  hoverWithReset(cardHoverElement(el));
   const d = findDetailPanel();
   let name = "",
     raw = "";
@@ -532,7 +574,9 @@ function readCardInfo(el, phase) {
 }
 
 function readCardInfoForIncoming(el) {
-  const full = readDetailPanelTextAfterHover(el, { retries: 3 });
+  const full = readDetailPanelTextAfterHover(cardHoverElement(el), {
+    retries: 3,
+  });
   if (!full) return null;
 
   const lines = full
@@ -547,6 +591,8 @@ function readCardInfoForIncoming(el) {
 function readIncomingCards(phase) {
   if (phase !== "defense") return [];
   const root = document.querySelector("#main");
+  if (!root) return [];
+
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
@@ -557,8 +603,7 @@ function readIncomingCards(phase) {
 
   const cards = Array.from(root.querySelectorAll("div"))
     .map((el) => {
-      const s = window.getComputedStyle(el);
-      if (!s.backgroundImage || s.backgroundImage === "none") return null;
+      if (!hasCardImage(el)) return null;
 
       const r = el.getBoundingClientRect();
       if (r.width < 50) return null;
@@ -617,6 +662,7 @@ function readBuyCandidate(phase) {
   const root = document.querySelector("#main") || document;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const detail = findDetailPanel();
 
   const zone = {
     minX: vw * 0.3,
@@ -627,26 +673,30 @@ function readBuyCandidate(phase) {
 
   const rawCards = Array.from(root.querySelectorAll("div"))
     .map((el) => {
-      const s = window.getComputedStyle(el);
-      if (!s.backgroundImage || s.backgroundImage === "none") return null;
+      if (detail && detail.contains(el)) return null;
+      if (!hasCardImage(el)) return null;
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
 
-      if (
-        cx < zone.minX ||
-        cx > zone.maxX ||
-        cy < zone.minY ||
-        cy > zone.maxY
-      ) {
-        return null;
-      }
+      const inPrimaryZone =
+        cx >= zone.minX &&
+        cx <= zone.maxX &&
+        cy >= zone.minY &&
+        cy <= zone.maxY;
+      const inFallbackZone =
+        cy >= vh * 0.05 && cy <= vh * 0.58 && cx >= vw * 0.05 && cx <= vw * 0.9;
+
+      if (!inPrimaryZone && !inFallbackZone) return null;
 
       if (r.width < 50 || r.width > 140) return null;
       if (r.height < 60 || r.height > 180) return null;
 
-      return { el, r };
+      const targetX = vw * 0.42;
+      const targetY = vh * 0.25;
+      const distance = Math.hypot(cx - targetX, cy - targetY);
+      return { el, r, inPrimaryZone, distance };
     })
     .filter(Boolean);
 
@@ -661,7 +711,10 @@ function readBuyCandidate(phase) {
     if (!dup) unique.push(obj);
   }
 
-  unique.sort((a, b) => a.r.top - b.r.top);
+  unique.sort((a, b) => {
+    if (a.inPrimaryZone !== b.inPrimaryZone) return a.inPrimaryZone ? -1 : 1;
+    return a.distance - b.distance;
+  });
   const cardEl = unique[0].el;
 
   const info = readCardInfoForIncoming(cardEl);
@@ -710,8 +763,7 @@ function hasClickableHand() {
   const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
     if (detail && detail.contains(el)) return false;
 
-    const st = window.getComputedStyle(el);
-    if (!st.backgroundImage || st.backgroundImage === "none") return false;
+    if (!hasCardImage(el)) return false;
 
     const r = el.getBoundingClientRect();
     if (r.top + r.height / 2 < vh * 0.5) return false;

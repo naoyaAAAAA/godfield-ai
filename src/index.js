@@ -40,10 +40,56 @@ const pollingLoop = createPollingLoop({
   escapeDefensePass: () => actions.useCardIndices([], "defense"),
 });
 
+function installDebugApi() {
+  const api = {
+    globals,
+    readState() {
+      const state = stateReader.readState();
+      if (state) globals.lastState = state;
+      logger.log("[GF AI STATE]", state);
+      return state;
+    },
+    lastState() {
+      logger.log("[GF AI LAST STATE]", globals.lastState);
+      return globals.lastState;
+    },
+    diagnose(options = {}) {
+      const opts =
+        typeof options === "boolean" ? { highlight: options } : options;
+      return stateReader.diagnose(opts);
+    },
+    highlight() {
+      return stateReader.diagnose({ highlight: true });
+    },
+    clearHighlights() {
+      stateReader.clearDebugOverlays();
+    },
+    async checkMiracles() {
+      await phaseGuards.checkMiraclesOnce();
+      return {
+        me: Array.from(globals.mySeenMiracles),
+        enemy: Array.from(globals.enemySeenMiracles),
+      };
+    },
+    setMyName(name) {
+      globals.MY_NAME = String(name || "AI");
+      logger.log("[GF AI] MY_NAME =", globals.MY_NAME);
+      return globals.MY_NAME;
+    },
+  };
+
+  globalThis.GFAI = api;
+  try {
+    if (typeof unsafeWindow !== "undefined") unsafeWindow.GFAI = api;
+  } catch (e) {
+    // ignore
+  }
+}
 
 (function init() {
   const now = new Date().toISOString();
   logger.log("[GF] bundle loaded", now);
+  installDebugApi();
   pollingLoop.startLoop();
 })();
 

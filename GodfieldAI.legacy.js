@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name         Godfield AI
 // @namespace    http://tampermonkey.net/
 // @version      1.4
@@ -400,10 +400,17 @@
     const handSig = (state.hand || [])
       .map((c) => `${c.name}:${c.overlay}`)
       .join("|");
-    if (state.phase === lastPhase && handSig === lastHandSig) return false;
+    const incomingSig =
+      state.phase === "defense"
+        ? (state.incomingCards || [])
+            .map((c) => `${c.name}:${c.overlay || ""}`)
+            .join("|")
+        : "";
+    const actionSig = `${handSig}::${incomingSig}`;
+    if (state.phase === lastPhase && actionSig === lastHandSig) return false;
 
     lastPhase = state.phase;
-    lastHandSig = handSig;
+    lastHandSig = actionSig;
     return true;
   }
   function rememberLastAttackSig(indices, hand) {
@@ -453,7 +460,7 @@
     });
   }
 
-  // 「売る」「買う」「許す」＋ 取引直後 のパターンは防御しない
+  // 「売る」「許す」＋ 取引直後 のパターンは防御しない
   function isHarmlessTradeIncoming(incoming) {
     // カードが1枚も見えていない：売るアニメが消えた直後など
     if (!incoming || !incoming.length) {
@@ -470,11 +477,6 @@
     // 1枚だけ「許す」
     // → 売る動作後、「売る＋売ったもの」が消えて「許す」だけ残るタイミングを想定
     if (incoming.length === 1 && names[0].includes("許す")) {
-      return true;
-    }
-
-    // 「買う」＋アイテム1枚
-    if (incoming.length === 2 && names.some((n) => n.includes("買う"))) {
       return true;
     }
 
@@ -606,6 +608,32 @@
     return true;
   }
 
+  function hasCssBackgroundImage(el) {
+    const bg = window.getComputedStyle(el).backgroundImage;
+    return !!bg && bg !== "none";
+  }
+
+  function findNestedImage(el) {
+    if (!el) return null;
+    if (el.tagName === "IMG") return el;
+    return el.querySelector?.("img") || null;
+  }
+
+  function hasVisualImage(el) {
+    return hasCssBackgroundImage(el) || !!findNestedImage(el);
+  }
+
+  function hasCardImage(el) {
+    if (hasCssBackgroundImage(el)) return true;
+    const img = findNestedImage(el);
+    const src = img?.currentSrc || img?.src || "";
+    return src.includes("/images/items/");
+  }
+
+  function cardHoverElement(el) {
+    return findNestedImage(el) || el;
+  }
+
   function hasClickableHand() {
     const root = document.querySelector("#main");
     if (!root) return false;
@@ -617,8 +645,7 @@
     const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
       if (detail && detail.contains(el)) return false;
 
-      const st = window.getComputedStyle(el);
-      if (!st.backgroundImage || st.backgroundImage === "none") return false;
+      if (!hasCardImage(el)) return false;
 
       const r = el.getBoundingClientRect();
       if (r.top + r.height / 2 < vh * 0.5) return false;
@@ -945,8 +972,7 @@
         if (r.width < 10 || r.width > 40) return false;
         const cx = r.left + r.width / 2;
         if (cx < minX) return false;
-        const bg = window.getComputedStyle(el).backgroundImage;
-        return el.tagName === "IMG" || (bg && bg !== "none");
+        return hasVisualImage(el);
       },
     );
 
@@ -1049,8 +1075,7 @@
         const cx = r.left + w / 2;
         if (cx < minX) return false;
 
-        const bg = window.getComputedStyle(el).backgroundImage;
-        return el.tagName === "IMG" || (bg && bg !== "none");
+        return hasVisualImage(el);
       },
     );
 
@@ -1089,6 +1114,8 @@
   function readHand(phase) {
     const detail = findDetailPanel();
     const root = document.querySelector("#main");
+    if (!root) return [];
+
     const vh = window.innerHeight;
     const vw = window.innerWidth;
     const labels = Array.from(root.querySelectorAll("div, span")).filter(
@@ -1101,8 +1128,7 @@
     );
     const cards = Array.from(root.querySelectorAll("div")).filter((el) => {
       if (detail && detail.contains(el)) return false;
-      const st = window.getComputedStyle(el);
-      if (!st.backgroundImage || st.backgroundImage === "none") return false;
+      if (!hasCardImage(el)) return false;
       const r = el.getBoundingClientRect();
       if (r.top + r.height / 2 < vh * 0.5) return false;
       if (r.left + r.width / 2 > vw * 0.85) return false;
@@ -1165,7 +1191,9 @@
   }
 
   function readCardInfo(el, phase) {
-    el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    cardHoverElement(el).dispatchEvent(
+      new MouseEvent("mouseover", { bubbles: true }),
+    );
     const d = findDetailPanel();
     let name = "",
       raw = "";
@@ -1198,7 +1226,9 @@
   function readCardInfoForIncoming(el) {
     const beforePanel = findDetailPanel();
     const beforeText = beforePanel ? beforePanel.innerText : "";
-    el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    cardHoverElement(el).dispatchEvent(
+      new MouseEvent("mouseover", { bubbles: true }),
+    );
     const d = findDetailPanel();
     if (!d) return null;
     const full = (d.innerText || "").trim();
@@ -1214,8 +1244,11 @@
   function readIncomingCards(phase) {
     if (phase !== "defense") return [];
     const root = document.querySelector("#main");
+    if (!root) return [];
+
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const detail = findDetailPanel();
 
     const ZONES = {
       left: {
@@ -1234,8 +1267,8 @@
 
     const cards = Array.from(root.querySelectorAll("div"))
       .map((el) => {
-        const s = window.getComputedStyle(el);
-        if (!s.backgroundImage || s.backgroundImage === "none") return null;
+        if (detail && detail.contains(el)) return null;
+        if (!hasCardImage(el)) return null;
 
         const r = el.getBoundingClientRect();
         if (r.width < 50) return null;
@@ -1294,8 +1327,8 @@
     const root = document.querySelector("#main") || document;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const detail = findDetailPanel();
 
-    // 1) 絶対座標で「買う候補カードゾーン」を決める（今のロジックベースでOK）
     const zone = {
       minX: vw * 0.3,
       maxX: vw * 0.55,
@@ -1303,36 +1336,37 @@
       maxY: vh * 0.45,
     };
 
-    // 2) ゾーン内の「カードっぽい div」を集める（incoming と同じノリ）
     const rawCards = Array.from(root.querySelectorAll("div"))
       .map((el) => {
-        const s = window.getComputedStyle(el);
-        if (!s.backgroundImage || s.backgroundImage === "none") return null;
+        if (detail && detail.contains(el)) return null;
+        if (!hasCardImage(el)) return null;
 
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
 
-        if (
-          cx < zone.minX ||
-          cx > zone.maxX ||
-          cy < zone.minY ||
-          cy > zone.maxY
-        ) {
-          return null;
-        }
+        const inPrimaryZone =
+          cx >= zone.minX &&
+          cx <= zone.maxX &&
+          cy >= zone.minY &&
+          cy <= zone.maxY;
+        const inFallbackZone =
+          cy >= vh * 0.05 &&
+          cy <= vh * 0.58 &&
+          cx >= vw * 0.05 &&
+          cx <= vw * 0.9;
 
-        // あまりに小さすぎる / デカすぎるカードは除外
-        if (r.width < 50 || r.width > 140) return null;
-        if (r.height < 60 || r.height > 180) return null;
+        if (!inPrimaryZone && !inFallbackZone) return null;
+        if (r.width < 40 || r.width > Math.max(180, vw * 0.1)) return null;
+        if (r.height < 50 || r.height > Math.max(220, vh * 0.22)) return null;
 
-        return { el, r };
+        const distance = Math.hypot(cx - vw * 0.42, cy - vh * 0.25);
+        return { el, r, inPrimaryZone, distance };
       })
       .filter(Boolean);
 
     if (!rawCards.length) return [];
 
-    // 3) 近接dup除去（incoming／hand と同じスタイル）
     const unique = [];
     for (const obj of rawCards) {
       const r = obj.r;
@@ -1343,15 +1377,15 @@
       if (!dup) unique.push(obj);
     }
 
-    // 買う候補は1枚だけ想定なので、一番上にあるやつを採用
-    unique.sort((a, b) => a.r.top - b.r.top);
+    unique.sort((a, b) => {
+      if (a.inPrimaryZone !== b.inPrimaryZone) return a.inPrimaryZone ? -1 : 1;
+      return a.distance - b.distance;
+    });
     const cardEl = unique[0].el;
 
-    // 4) 名前・raw_textは incoming と同じロジックで読む
     const info = readCardInfoForIncoming(cardEl);
     if (!info) return [];
 
-    // 5) overlay はシンプルにカード内のラベルを拾う or 要らなければ空でもOK
     let overlay = "";
     const label = cardEl.querySelector("span, div");
     if (label) overlay = (label.textContent || "").trim();
